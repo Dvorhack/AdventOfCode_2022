@@ -105,6 +105,52 @@ impl Dossier {
     }
 }
 
+fn update_size(dossier: Rc<RefCell<Dossier>>) -> u32 {
+
+    let mut to_add = 0;
+    if dossier.borrow().dossiers.len() != 0{
+        for d in &dossier.borrow_mut().dossiers {
+            to_add += update_size(Rc::clone(d));
+        }
+    }
+    dossier.borrow_mut().taille += to_add;
+
+    // for file in &dossier.borrow().fichiers {
+    //     dossier.borrow_mut().taille += file.borrow().taille;
+    // }
+    dossier.borrow().taille
+}
+
+fn find_folders_less_than(dossier: Rc<RefCell<Dossier>>, limit: u32) -> u32{
+    let mut to_add = 0;
+    if dossier.borrow().dossiers.len() != 0{
+        for d in &dossier.borrow_mut().dossiers {
+            to_add += find_folders_less_than(Rc::clone(d), limit);
+        }
+    }
+
+    if dossier.borrow().taille < limit {
+        println!("{} {}",dossier.borrow().name, dossier.borrow().taille);
+        return to_add + dossier.borrow().taille;
+    }
+    to_add
+}
+
+fn find_folders_greater(dossier: Rc<RefCell<Dossier>>, limit: u32) -> u32{
+    let mut to_add = 0;
+    if dossier.borrow().dossiers.len() != 0{
+        for d in &dossier.borrow_mut().dossiers {
+            to_add += find_folders_greater(Rc::clone(d), limit);
+        }
+    }
+
+    if dossier.borrow().taille > limit {
+        println!("{} {}",dossier.borrow().name, dossier.borrow().taille);
+        return to_add + dossier.borrow().taille;
+    }
+    to_add
+}
+
 fn step1() {
     let file_path = "input.txt";
 
@@ -116,17 +162,18 @@ fn step1() {
     let root = Rc::new(RefCell::new(Dossier::new("/".to_string())));
     let mut current = Rc::clone(&root);
 
+    // Build the file system based on input.txt
     for line in buf_reader.lines() {
         let line = line.unwrap();
 
-        println!("{line}");
+        
         if line.starts_with("$"){
             match &line[2..4]{
-                "cd" => {
+                "cd" => { // change the current directory ("current" variable)
 
                     if &line[5..6] == "/"{
                         current = Rc::clone(&root);
-                    }else if &line[5..7] == ".."{
+                    }else if &line[5..] == ".."{
                         let current_clone = Rc::clone(&current);
                         current = current_clone.borrow().get_parent().unwrap();
                     }else{
@@ -135,13 +182,16 @@ fn step1() {
                     }
                 },
                 "ls" => {
-                    println!("LS !");
+                    //println!("LS !");
                 },
                 _ => {
                     println!("Unknown cmd {line}");
                 }
             }
-        }else{
+
+        // If it's not a command, then it's a file or a folder
+        // Let's add it to our file system
+        }else{ 
             let arr = line.split(" ").collect::<Vec<&str>>();
             if arr[0] == "dir"{
                 current.borrow_mut().add_folder(Rc::new(RefCell::new(
@@ -155,51 +205,88 @@ fn step1() {
         }
        
     }
-
     println!("{}", root.borrow().print());
-}
 
-fn init_tree()  {
-    let root = Rc::new(RefCell::new(Dossier::new("/".to_string())));
-    let current = Rc::clone(&root);
-
-    current.borrow_mut().add_folder(Rc::new(RefCell::new(Dossier::new("b".to_string()))), Rc::clone(&current));
-    current.borrow_mut().add_folder(Rc::new(RefCell::new(Dossier::new("c".to_string()))), Rc::clone(&current));
-    current.borrow_mut().add_file(Rc::new(RefCell::new(Fichier::new("b".to_string(), 1))));
-
-
-    let sub = current.borrow().find("b".to_string()).unwrap();
-    sub.borrow_mut().add_folder(Rc::new(RefCell::new(Dossier::new("d".to_string()))), Rc::clone(&sub));
-    sub.borrow_mut().add_file(Rc::new(RefCell::new(Fichier::new("b".to_string(), 85))));
-    sub.borrow_mut().add_file(Rc::new(RefCell::new(Fichier::new("i".to_string(), 1))));
-
-    let sub = sub.borrow().find("d".to_string()).unwrap();
-
+    // Once the filee system (fs) is complete, we can compute the size of each folder
+    // by browsing from leaves to root
+    update_size(Rc::clone(&root));
 
     println!("{}", root.borrow().print());
 
-    println!("{}", sub.borrow().get_parent().unwrap().borrow().print());
+    // Now our fs is up to date, we just need to browse and find the folder smaller than 100000
+    println!("{}",find_folders_less_than(Rc::clone(&root), 100000));
+}   
 
-}
+fn step2() {
+    let file_path = "input.txt";
 
+    let file = File::open(file_path)
+        .expect("file not found!");
+
+    let  buf_reader = BufReader::new(file);
     
+    let root = Rc::new(RefCell::new(Dossier::new("/".to_string())));
+    let mut current = Rc::clone(&root);
 
-// fn step2(){
-//     let file_path = "input.txt";
+    // Build the file system based on input.txt
+    for line in buf_reader.lines() {
+        let line = line.unwrap();
 
-//     let file = File::open(file_path)
-//         .expect("file not found!");
+        
+        if line.starts_with("$"){
+            match &line[2..4]{
+                "cd" => { // change the current directory ("current" variable)
 
-//     let  buf_reader = BufReader::new(file);
+                    if &line[5..6] == "/"{
+                        current = Rc::clone(&root);
+                    }else if &line[5..] == ".."{
+                        let current_clone = Rc::clone(&current);
+                        current = current_clone.borrow().get_parent().unwrap();
+                    }else{
+                        let current_clone = Rc::clone(&current);
+                        current = current_clone.borrow().find(line[5..].to_string()).unwrap();
+                    }
+                },
+                "ls" => {
+                    //println!("LS !");
+                },
+                _ => {
+                    println!("Unknown cmd {line}");
+                }
+            }
 
-//     for line in buf_reader.lines() {
-//         let line = line.unwrap();
+        // If it's not a command, then it's a file or a folder
+        // Let's add it to our file system
+        }else{ 
+            let arr = line.split(" ").collect::<Vec<&str>>();
+            if arr[0] == "dir"{
+                current.borrow_mut().add_folder(Rc::new(RefCell::new(
+                    Dossier::new(arr[1].to_string())
+                )), Rc::clone(&current));
+            }else {
+                current.borrow_mut().add_file(Rc::new(RefCell::new(
+                    Fichier::new(arr[1].to_string(), arr[0].parse::<u32>().unwrap())
+                )));
+            }
+        }
+       
+    }
+    println!("{}", root.borrow().print());
 
-//     }
-// }
+    // Once the filee system (fs) is complete, we can compute the size of each folder
+    // by browsing from leaves to root
+    update_size(Rc::clone(&root));
+
+    println!("{}", root.borrow().print());
+
+    println!("Used space: {} free space: {} need to remove {}", root.borrow().taille,70000000 - root.borrow().taille, 30000000 - (70000000 - root.borrow().taille));
+
+    // Now our fs is up to date, we just need to browse and find the folder smaller than 100000
+    let limit =  30000000 - (70000000 - root.borrow().taille);
+    println!("{}",find_folders_greater(Rc::clone(&root), limit));
+}
 
 fn main(){
-    // init_tree();
-    step1();
-    // step2();
+    //step1();
+    step2();
 }

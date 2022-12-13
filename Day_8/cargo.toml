@@ -1,0 +1,12 @@
+[package]
+name = "hello_world" # the name of the package
+version = "0.1.0"    # the current version, obeying semver
+authors = ["Dvorhack <a@example.com>"]
+edition = "2021"
+
+[[bin]]
+name = "main"
+path = "./main.rs"
+
+[dependencies]
+itertools = "~0.10.5"
