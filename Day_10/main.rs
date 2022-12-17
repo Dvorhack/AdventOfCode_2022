@@ -18,13 +18,29 @@ impl CPU {
             tick: 0,
             signal_trigger: [20, 60, 100, 140, 180, 220],
             strength: 0,
-            current_row: []
+            current_row: [false; 40]
         }
     }
     fn add_tick(&mut self){
-
+        if (self.x-1..self.x+2).contains(&(self.tick as isize % 40)){
+            self.current_row[(self.tick % 40)] = true;
+        }
         self.tick += 1;
         self.signal_strengths();
+        if self.tick % 40 == 0{
+            self.print_line();
+        }
+    }
+    fn print_line(&mut self){
+        for i in self.current_row{
+            if i{
+                print!("X");
+            }else{
+                print!(".");
+            }
+        }
+        println!("");
+        self.current_row = [false; 40];
     }
     fn execute(&mut self, op: OPCODE){
         match op {
@@ -44,7 +60,7 @@ impl CPU {
     }
     fn signal_strengths(&mut self) {
         if self.signal_trigger.contains(&self.tick){
-            println!("{} {}",self.tick, self.x);
+            //println!("{} {}",self.tick, self.x);
             self.strength += self.tick * self.x as usize;
         }
     }
