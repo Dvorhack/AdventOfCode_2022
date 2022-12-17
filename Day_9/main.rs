@@ -1,165 +1,102 @@
-use std::fs::File;
-use std::io::BufReader;
-use std::io::prelude::*;
-use std::process;
 
-#[derive(Debug)]
+use std::collections::HashSet;
+
+#[derive(Debug, Hash, Eq, PartialEq, Clone, Copy)]
 struct Point {
-    x: i32,
-    y: i32
+    x: isize,
+    y: isize
 }
 
-impl Point {
-    fn distance(&self, p: &Point) -> f64 {
-        (((self.x - p.x).pow(2) + (self.y - p.y).pow(2)) as f64).sqrt()
-    }
-    fn dx(&self, p: &Point) -> i32 {
-        self.x - p.x
-    }
-    fn dy(&self, p: &Point) -> i32 {
-        self.y - p.y
-    }
-    fn change_coor(&mut self, x: i32, y: i32){
-        self.x = x;
-        self.y = y;
-    }
-}
-
-#[derive(Debug)]
-struct Game{
-    head: Point,
-    tail: Point,
-    board: Vec<Vec<bool>>
-}
-
-impl Game{
-    fn new() -> Game {
-        let mut g = Game{
-            head: Point{x: 2500,y: 2500},
-            tail: Point{x: 2500,y: 2500},
-            board: vec![vec![false; 5000]; 5000]
-        };
-        g.board[0][0] = true;
-        g
-    }
-
-    fn size(&self) -> (usize, usize) {
-        (self.board.len(), self.board[0].len())
-    }
-
-    fn need_move(&self) -> bool {
-        if self.head.distance(&self.tail) >= 2.0 {
-            //println!("Need move");
-            return true;
-        }
-        false
-    }
-
-    fn parse_move(&mut self, m: &str) -> bool{
-        let direction = m.split(" ").collect::<Vec<&str>>()[0];
-        let nb_iter = m.split(" ").collect::<Vec<&str>>()[1].parse::<i32>().unwrap();
-        for _ in 0..nb_iter {
-            
-            match direction {
-                "R" => {
-                    self.move_head(self.head.x as usize, (self.head.y + 1) as usize);
-                },
-                "L" => {
-                    self.move_head(self.head.x as usize, (self.head.y - 1) as usize);
-                },
-                "U" => {
-                    self.move_head((self.head.x + 1) as usize, self.head.y as usize);
-                },
-                "D" => {
-                    self.move_head((self.head.x - 1) as usize, self.head.y as usize);
-                },
-                _ => {println!("Unknown direction");}
-            }
-            //println!("{:?} {:?}",self.head, self.tail);
-        }
-        true
-    }
-
-    fn move_head(&mut self, x: usize, y: usize){
-        if x >= self.size().0 || y >= self.size().1{
-            println!("Need bigger array");
-            process::exit(1);
-        }
-        if self.head.distance(&Point{x: x as i32, y: y as i32}) >= 2.0{
-            println!("Illegal move");
-            process::exit(1);
-        }
-        self.head.change_coor(x as i32, y as i32);
-
-        if self.need_move() {
-            self.move_tail();
-        }
-    }
-
-    fn move_tail(&mut self){
-        if self.head.distance(&self.tail) == 2.0{
-            //println!("Droit {} {}",if self.head.dx(&self.tail) == 2 {1} else {0}, if self.head.dy(&self.tail) == 2 {1} else {0});
-            self.tail.change_coor(
-                self.tail.x + if self.head.dx(&self.tail).abs() == 2 {self.head.dx(&self.tail)/2} else {0},
-                self.tail.y + if self.head.dy(&self.tail).abs() == 2 {self.head.dy(&self.tail)/2} else {0}
-            )
-        }else if self.head.distance(&self.tail) >= 2.0 {
-            //println!("Diag");
-            self.tail.change_coor(
-                self.tail.x + if self.head.dx(&self.tail).abs() == 2 {self.head.dx(&self.tail)/2} else {self.head.dx(&self.tail)},
-                self.tail.y + if self.head.dy(&self.tail).abs() == 2 {self.head.dy(&self.tail)/2} else {self.head.dy(&self.tail)}
-            )
-        }else{
-            println!("no need move");
-            process::exit(1);
-        }
-        self.board[self.tail.x as usize][self.tail.y as usize] = true;
-    }
-
-    fn score(&self) -> usize{
-        self.board.iter().flatten().filter(|e| e == &&true).count()
-    }
-
-}
-
-// impl std::fmt::Display for Game {
-//     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-//         let mut affiche = String::from("")
-//         for i in self.
-//         write!(f, "(value a: {}, value b: {})", self.a, self.b)
-//     }
-// }
 
 fn step1(){
-    let file_path = "input.txt";
+    let input = std::fs::read_to_string("input.txt").unwrap();
+    let start = Point { x: 0, y: 0 };
+    let mut head = start;
+    let mut tail = start;
 
-    let file = File::open(file_path)
-        .expect("file not found!");
+    let mut visited = HashSet::new();
+    visited.insert(tail);
 
-    let  buf_reader = BufReader::new(file);
+    for line in input.lines(){
+        // Get the elements form the line
+        let (dir, num) = line.split_once(' ').unwrap();
+        let num = num.parse::<i32>().unwrap();
 
-    
+        for _ in 0..num{
+            // Move the head
+            match dir {
+                "U" => head.y += 1,
+                "L" => head.x += 1,
+                "R" => head.x -= 1,
+                "D" => head.y -= 1,
+                _ => panic!("Unvalid position {}",dir)
+            }
 
-    let mut game = Game::new();
-    
-
-    for line in buf_reader.lines() {
-        let line = line.unwrap();
-        println!("{}",line);
-        game.parse_move(&line);
+            // Check if tail needs to move
+            let diff = Point {
+                x: head.x - tail.x,
+                y: head.y - tail.y
+            };
+            if diff.x.abs() > 1 || diff.y.abs() > 1 {
+                // Add the sign of the difference
+                tail.x += diff.x.signum();
+                tail.y += diff.y.signum();
+                visited.insert(tail);
+            }
+        }
         
     }
 
+    println!("Visited {} points", visited.len());
 
-    
-    println!("Nb cases: {}", game.score());
+}
 
-    // for i in 0..6{
-    //     println!("{:?}",game.board[i]);
-    // }
+fn step2(){
+    let input = std::fs::read_to_string("input.txt").unwrap();
+    let start = Point { x: 0, y: 0 };
+    let snake_len = 10;
+    let target_node = 9;
+    let mut snake = vec![start;snake_len];
+
+    let mut visited = HashSet::new();
+    visited.insert(snake[target_node]);
+
+    for line in input.lines(){
+        // Get the elements form the line
+        let (dir, num) = line.split_once(' ').unwrap();
+        let num = num.parse::<i32>().unwrap();
+
+        for _ in 0..num{
+            // Move the head
+            match dir {
+                "U" => snake[0].y += 1,
+                "L" => snake[0].x += 1,
+                "R" => snake[0].x -= 1,
+                "D" => snake[0].y -= 1,
+                _ => panic!("Unvalid position {}",dir)
+            }
+            for i in 1..snake_len{
+                // Check if tail needs to move
+                let diff = Point {
+                    x: snake[i-1].x - snake[i].x,
+                    y: snake[i-1].y - snake[i].y
+                };
+                if diff.x.abs() > 1 || diff.y.abs() > 1 {
+                    // Add the sign of the difference
+                    snake[i].x += diff.x.signum();
+                    snake[i].y += diff.y.signum();
+                }
+            }
+            visited.insert(snake[target_node]);
+        }
+        
+    }
+
+    println!("Visited {} points", visited.len());
+
 }
 
 fn main(){
-    step1();
-    //step2();
+    // step1();
+    step2();
 }
